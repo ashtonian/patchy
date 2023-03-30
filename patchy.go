@@ -120,6 +120,8 @@ type FieldMetadata struct {
 	AllowedOps      []string
 	IsIgnored       bool
 	ColumnName      string
+	TargetIndex     int
+	TargetKey       string
 }
 
 // func (p *Patchy) GetFieldMetadata(jsonPointer string) (FieldMetadata, error) {
@@ -134,36 +136,37 @@ type FieldMetadata struct {
 
 func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetadata, error) {
 	if len(parts) == 0 {
-		return FieldMetadata{}, nil
+		return p.buildMetadata(t, ""), nil
 	}
 
-	fieldName, field, err := getFieldByJsonTag(t, parts[0])
+	fieldName, fieldType, err := getFieldByJsonTag(t, parts[0])
 	if err != nil {
 		return FieldMetadata{}, err
 	}
 
 	if len(parts) == 1 {
-		return p.buildMetadata(field, fieldName), nil
+		return p.buildMetadata(fieldType, fieldName), nil
 	}
 
-	switch field.Kind() {
+	switch fieldType.Kind() {
 	case reflect.Struct:
-		return p.getFieldMetadataRec(field, parts[1:])
+		return p.getFieldMetadataRec(fieldType, parts[1:])
 	case reflect.Ptr:
-		return p.getFieldMetadataRec(field.Elem(), parts[1:])
+		return p.getFieldMetadataRec(fieldType.Elem(), parts[1:])
 	case reflect.Slice:
-		index, err := parseArrayIndex(parts[1])
-		if err != nil {
-			return FieldMetadata{}, err
-		}
+		// index, err := parseArrayIndex(parts[1])
+		// if err != nil {
+		// 	return FieldMetadata{}, err
+		// }
 
-		if index == "-" {
-			return p.buildMetadata(field.Elem(), fieldName), nil
-		}
+		// if index == "-" {
+		return p.buildMetadata(fieldType, fieldName), nil
+		// }
 
-		return p.getFieldMetadataRec(field.Elem(), parts[2:])
+		// return p.getFieldMetadataRec(fieldType.Elem(), parts[2:])
 	case reflect.Map:
-		return p.getFieldMetadataRec(field.Elem(), parts[1:])
+		// get the key type of the map and verify its a string
+		return p.buildMetadata(fieldType, fieldName), nil
 	default:
 		return FieldMetadata{}, errors.New("invalid JSON pointer")
 	}
@@ -184,14 +187,9 @@ func getFieldByJsonTag(t reflect.Type, tagName string) (string, reflect.Type, er
 
 func (p *Patchy) buildMetadata(field reflect.Type, fieldName string) FieldMetadata {
 	meta := FieldMetadata{
-		ColumnName:      p.colNameFunc(field),
-		IsSlice:         false,
-		IsMap:           false,
-		IsStruct:        false,
-		IsPrimitive:     false,
-		SliceElemType:   reflect.Invalid,
-		MapValueType:    reflect.Invalid,
 		StructFieldName: fieldName,
+		Type:            field.Kind(),
+		ColumnName:      p.colNameFunc(field),
 	}
 
 	switch field.Kind() {
