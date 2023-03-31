@@ -61,116 +61,100 @@ func TestGetFieldMetadata(t *testing.T) {
 	}
 
 	testCases := []TestCase{
-		// {
-		// 	name:    "regular field",
-		// 	pointer: "/name",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:          reflect.String,
-		// 		IsSlice:       false,
-		// 		IsMap:         false,
-		// 		IsStruct:      false,
-		// 		IsPrimitive:   true,
-		// 		SliceElemType: reflect.Invalid,
-		// 		MapValueType:  reflect.Invalid,
-		// 		// Tags:            "json:\"name\"",
-		// 		StructFieldName: "Name",
-		// 	},
-		// 	expectedError: nil,
-		// },
-		// {
-		// 	name:    "embedded field",
-		// 	pointer: "/embeddedAddress/street",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:          reflect.String,
-		// 		IsSlice:       false,
-		// 		IsMap:         false,
-		// 		IsStruct:      false,
-		// 		IsPrimitive:   true,
-		// 		SliceElemType: reflect.Invalid,
-		// 		MapValueType:  reflect.Invalid,
-		// 		// Tags:            "json:\"street\"",
-		// 		StructFieldName: "Street",
-		// 	},
-		// 	expectedError: nil,
-		// },
-		// {
-		// 	name:    "slice index",
-		// 	pointer: "/hobbies/0",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:          reflect.Slice,
-		// 		IsSlice:       true,
-		// 		IsMap:         false,
-		// 		IsStruct:      false,
-		// 		IsPrimitive:   false,
-		// 		SliceElemType: reflect.String,
-		// 		MapValueType:  reflect.Invalid,
-		// 		// Tags:            "json:\"hobbies\"",
-		// 		StructFieldName: "Hobbies",
-		// 	},
-		// 	expectedError: nil,
-		// },
-		// {
-		// 	name:    "map key",
-		// 	pointer: "/pets/dog",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:         reflect.TypeOf(map[string]string{}).Kind(),
-		// 		IsMap:        true,
-		// 		MapValueType: reflect.String,
-		// 		// Tags:            "json:\"pets\"",
-		// 		StructFieldName: "Pets",
-		// 	},
-		// 	expectedError: nil,
-		// },
-		// {
-		// 	name:    "root",
-		// 	pointer: "",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:        reflect.Struct,
-		// 		IsSlice:     false,
-		// 		IsMap:       false,
-		// 		IsStruct:    true,
-		// 		IsPrimitive: false,
-		// 		// SliceElemType: reflect.Invalid,
-		// 		// MapValueType:  reflect.Invalid,
-		// 		// Tags:            "",
-		// 		StructFieldName: "",
-		// 	},
-		// 	expectedError: nil,
-		// },
-		// {
-		// 	name:          "nonexistent field",
-		// 	pointer:       "/nonexistent",
-		// 	expectedValue: nil,
-		// 	expectedError: errors.New("field not found"),
-		// },
+		{
+			name:    "regular field",
+			pointer: "/name",
+			expectedValue: &FieldMetadata{
+				Type:          reflect.String,
+				IsSlice:       false,
+				IsMap:         false,
+				IsStruct:      false,
+				IsPrimitive:   true,
+				SliceElemType: reflect.Invalid,
+				MapValueType:  reflect.Invalid,
+				// Tags:            "json:\"name\"",
+				StructFieldName: "Name",
+			},
+			expectedError: nil,
+		},
+		{
+			name:    "embedded field",
+			pointer: "/embeddedAddress/street",
+			expectedValue: &FieldMetadata{
+				Type:          reflect.String,
+				IsSlice:       false,
+				IsMap:         false,
+				IsStruct:      false,
+				IsPrimitive:   true,
+				SliceElemType: reflect.Invalid,
+				MapValueType:  reflect.Invalid,
+				// Tags:            "json:\"street\"",
+				StructFieldName: "Street",
+			},
+			expectedError: nil,
+		},
+		{
+			name:    "slice index",
+			pointer: "/hobbies/0",
+			expectedValue: &FieldMetadata{
+				Type:          reflect.Slice,
+				IsSlice:       true,
+				IsMap:         false,
+				IsStruct:      false,
+				IsPrimitive:   false,
+				SliceElemType: reflect.String,
+				MapValueType:  reflect.Invalid,
+				// Tags:            "json:\"hobbies\"",
+				StructFieldName: "Hobbies",
+			},
+			expectedError: nil,
+		},
+		{
+			name:    "map key",
+			pointer: "/pets/dog",
+			expectedValue: &FieldMetadata{
+				Type:         reflect.TypeOf(map[string]string{}).Kind(),
+				IsMap:        true,
+				MapValueType: reflect.String,
+				// Tags:            "json:\"pets\"",
+				StructFieldName: "Pets",
+			},
+			expectedError: nil,
+		},
+		{
+			name:    "root",
+			pointer: "",
+			expectedValue: &FieldMetadata{
+				Type:        reflect.Struct,
+				IsSlice:     false,
+				IsMap:       false,
+				IsStruct:    true,
+				IsPrimitive: false,
+				// SliceElemType: reflect.Invalid,
+				// MapValueType:  reflect.Invalid,
+				// Tags:            "",
+				StructFieldName: "",
+			},
+			expectedError: nil,
+		},
+		{
+			name:          "nonexistent field",
+			pointer:       "/nonexistent",
+			expectedValue: nil,
+			expectedError: errors.New("field not found"),
+		},
 		{
 			name:          "invalid slice index",
 			pointer:       "/hobbies/invalid",
 			expectedValue: nil,
-			expectedError: errors.New("invalid index: invalid"),
+			expectedError: errors.New("invalid array index"),
 		},
-		// {
-		// 	name:          "invalid map key",
-		// 	pointer:       "/pets/invalid",
-		// 	expectedValue: nil,
-		// 	expectedError: errors.New("invalid key: invalid"),
-		// },
-		// {
-		// 	name:    "nil pointer",
-		// 	pointer: "/address/city",
-		// 	expectedValue: &FieldMetadata{
-		// 		Type:          reflect.String,
-		// 		IsSlice:       false,
-		// 		IsMap:         false,
-		// 		IsStruct:      false,
-		// 		IsPrimitive:   true,
-		// 		SliceElemType: reflect.Invalid,
-		// 		MapValueType:  reflect.Invalid,
-		// 		// Tags:            "json:\"city\"",
-		// 		StructFieldName: "City",
-		// 	},
-		// 	expectedError: nil,
-		// },
+		{
+			name:          "nested nil pointer",
+			pointer:       "/address/notfound",
+			expectedValue: nil,
+			expectedError: errors.New("field not found"),
+		},
 	}
 	for _, tc := range testCases {
 		actualValue, actualError := patchy.getFieldMetadataRec(patchy.entityType, strings.Split(tc.pointer, "/")[1:])
@@ -184,6 +168,9 @@ func TestGetFieldMetadata(t *testing.T) {
 		}
 		if tc.expectedError != nil && actualError != nil && tc.expectedError.Error() != actualError.Error() {
 			t.Errorf("%s: expected error '%v', actual error '%v'", tc.name, tc.expectedError, actualError)
+			continue
+		}
+		if tc.expectedError != nil && actualError != nil && tc.expectedError.Error() == actualError.Error() {
 			continue
 		}
 		if actualValue.Type != tc.expectedValue.Type {

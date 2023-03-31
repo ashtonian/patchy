@@ -120,7 +120,7 @@ type FieldMetadata struct {
 	AllowedOps      []string
 	IsIgnored       bool
 	ColumnName      string
-	TargetIndex     int
+	TargetIndex     string
 	TargetKey       string
 }
 
@@ -154,14 +154,17 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 	case reflect.Ptr:
 		return p.getFieldMetadataRec(fieldType.Elem(), parts[1:])
 	case reflect.Slice:
-		// index, err := parseArrayIndex(parts[1])
-		// if err != nil {
-		// 	return FieldMetadata{}, err
-		// }
-
 		// if index == "-" {
-		return p.buildMetadata(fieldType, fieldName), nil
-		// }
+		meta := p.buildMetadata(fieldType, fieldName)
+
+		if len(parts) > 1 {
+			indexStr, err := validateArrayIndex(parts[1])
+			if err != nil {
+				return FieldMetadata{}, err
+			}
+			meta.TargetIndex = indexStr
+		}
+		return meta, nil
 
 		// return p.getFieldMetadataRec(fieldType.Elem(), parts[2:])
 	case reflect.Map:
@@ -222,7 +225,7 @@ func isPrimitiveType(k reflect.Kind) bool {
 	}
 }
 
-func parseArrayIndex(s string) (string, error) {
+func validateArrayIndex(s string) (string, error) {
 	if s == "-" {
 		return s, nil
 	}
