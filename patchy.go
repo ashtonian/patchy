@@ -109,19 +109,12 @@ func ToSnakeCase(s string) string {
 }
 
 type FieldMetadata struct {
-	Type            reflect.Kind
-	IsSlice         bool
-	IsMap           bool
-	IsStruct        bool
-	IsPrimitive     bool
-	SliceElemType   reflect.Kind
-	MapValueType    reflect.Kind
 	StructFieldName string
+	Type            reflect.Kind
+	SubElemType     reflect.Kind
 	AllowedOps      []string
-	IsIgnored       bool
 	ColumnName      string
-	TargetIndex     string
-	TargetKey       string
+	TargetStr       string
 }
 
 // func (p *Patchy) GetFieldMetadata(jsonPointer string) (FieldMetadata, error) {
@@ -162,14 +155,18 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 			if err != nil {
 				return FieldMetadata{}, err
 			}
-			meta.TargetIndex = indexStr
+			meta.TargetStr = indexStr
 		}
 		return meta, nil
 
 		// return p.getFieldMetadataRec(fieldType.Elem(), parts[2:])
 	case reflect.Map:
 		// get the key type of the map and verify its a string
-		return p.buildMetadata(fieldType, fieldName), nil
+		meta := p.buildMetadata(fieldType, fieldName)
+		if len(parts) > 1 {
+			meta.TargetStr = parts[1]
+		}
+		return meta, nil
 	default:
 		return FieldMetadata{}, errors.New("invalid JSON pointer")
 	}
@@ -197,19 +194,11 @@ func (p *Patchy) buildMetadata(field reflect.Type, fieldName string) FieldMetada
 
 	switch field.Kind() {
 	case reflect.Slice:
-		meta.IsSlice = true
-		meta.SliceElemType = field.Elem().Kind()
+		meta.SubElemType = field.Elem().Kind()
 	case reflect.Map:
-		meta.IsMap = true
-		meta.MapValueType = field.Elem().Kind()
-	case reflect.Struct:
-		meta.IsStruct = true
+		meta.SubElemType = field.Elem().Kind()
 	case reflect.Ptr:
 		meta.Type = field.Elem().Kind()
-		meta.IsPrimitive = isPrimitiveType(field.Elem().Kind())
-	default:
-		meta.Type = field.Kind()
-		meta.IsPrimitive = isPrimitiveType(field.Kind())
 	}
 
 	return meta

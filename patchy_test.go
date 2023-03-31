@@ -65,14 +65,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			name:    "regular field",
 			pointer: "/name",
 			expectedValue: &FieldMetadata{
-				Type:          reflect.String,
-				IsSlice:       false,
-				IsMap:         false,
-				IsStruct:      false,
-				IsPrimitive:   true,
-				SliceElemType: reflect.Invalid,
-				MapValueType:  reflect.Invalid,
-				// Tags:            "json:\"name\"",
+				Type:            reflect.String,
 				StructFieldName: "Name",
 			},
 			expectedError: nil,
@@ -81,13 +74,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			name:    "embedded field",
 			pointer: "/embeddedAddress/street",
 			expectedValue: &FieldMetadata{
-				Type:          reflect.String,
-				IsSlice:       false,
-				IsMap:         false,
-				IsStruct:      false,
-				IsPrimitive:   true,
-				SliceElemType: reflect.Invalid,
-				MapValueType:  reflect.Invalid,
+				Type: reflect.String,
 				// Tags:            "json:\"street\"",
 				StructFieldName: "Street",
 			},
@@ -97,13 +84,9 @@ func TestGetFieldMetadata(t *testing.T) {
 			name:    "slice index",
 			pointer: "/hobbies/0",
 			expectedValue: &FieldMetadata{
-				Type:          reflect.Slice,
-				IsSlice:       true,
-				IsMap:         false,
-				IsStruct:      false,
-				IsPrimitive:   false,
-				SliceElemType: reflect.String,
-				MapValueType:  reflect.Invalid,
+				Type:        reflect.Slice,
+				SubElemType: reflect.String,
+				TargetStr:   "0",
 				// Tags:            "json:\"hobbies\"",
 				StructFieldName: "Hobbies",
 			},
@@ -113,9 +96,9 @@ func TestGetFieldMetadata(t *testing.T) {
 			name:    "map key",
 			pointer: "/pets/dog",
 			expectedValue: &FieldMetadata{
-				Type:         reflect.TypeOf(map[string]string{}).Kind(),
-				IsMap:        true,
-				MapValueType: reflect.String,
+				Type:        reflect.TypeOf(map[string]string{}).Kind(),
+				SubElemType: reflect.String,
+				TargetStr:   "dog",
 				// Tags:            "json:\"pets\"",
 				StructFieldName: "Pets",
 			},
@@ -125,14 +108,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			name:    "root",
 			pointer: "",
 			expectedValue: &FieldMetadata{
-				Type:        reflect.Struct,
-				IsSlice:     false,
-				IsMap:       false,
-				IsStruct:    true,
-				IsPrimitive: false,
-				// SliceElemType: reflect.Invalid,
-				// MapValueType:  reflect.Invalid,
-				// Tags:            "",
+				Type:            reflect.Struct,
 				StructFieldName: "",
 			},
 			expectedError: nil,
@@ -176,27 +152,12 @@ func TestGetFieldMetadata(t *testing.T) {
 		if actualValue.Type != tc.expectedValue.Type {
 			t.Errorf("%s: expected type %v, actual type %v", tc.name, tc.expectedValue.Type, actualValue.Type)
 		}
-		if actualValue.IsSlice != tc.expectedValue.IsSlice {
-			t.Errorf("%s: expected IsSlice %t, actual IsSlice %t", tc.name, tc.expectedValue.IsSlice, actualValue.IsSlice)
+		if actualValue.SubElemType != tc.expectedValue.SubElemType {
+			t.Errorf("%s: expected SliceElemType %v, actual SliceElemType %v", tc.name, tc.expectedValue.SubElemType, actualValue.SubElemType)
 		}
-		if actualValue.IsMap != tc.expectedValue.IsMap {
-			t.Errorf("%s: expected IsMap %t, actual IsMap %t", tc.name, tc.expectedValue.IsMap, actualValue.IsMap)
+		if actualValue.TargetStr != tc.expectedValue.TargetStr {
+			t.Errorf("%s: expected TargetStr %v, actual TargetStr %v", tc.name, tc.expectedValue.TargetStr, actualValue.TargetStr)
 		}
-		if actualValue.IsStruct != tc.expectedValue.IsStruct {
-			t.Errorf("%s: expected IsStruct %t, actual IsStruct %t", tc.name, tc.expectedValue.IsStruct, actualValue.IsStruct)
-		}
-		if actualValue.IsPrimitive != tc.expectedValue.IsPrimitive {
-			t.Errorf("%s: expected IsPrimitive %t, actual IsPrimitive %t", tc.name, tc.expectedValue.IsPrimitive, actualValue.IsPrimitive)
-		}
-		if actualValue.SliceElemType != tc.expectedValue.SliceElemType {
-			t.Errorf("%s: expected SliceElemType %v, actual SliceElemType %v", tc.name, tc.expectedValue.SliceElemType, actualValue.SliceElemType)
-		}
-		if actualValue.MapValueType != tc.expectedValue.MapValueType {
-			t.Errorf("%s: expected MapValueType %v, actual MapValueType %v", tc.name, tc.expectedValue.MapValueType, actualValue.MapValueType)
-		}
-		// if actualValue.Tags != tc.expectedValue.Tags {
-		// 	t.Errorf("%s: expected Tags %s, actual Tags %s", tc.name, tc.expectedValue.Tags, actualValue.Tags)
-		// }
 		if actualValue.StructFieldName != tc.expectedValue.StructFieldName {
 			t.Errorf("%s: expected StructFieldName %s, actual StructFieldName %s", tc.name, tc.expectedValue.StructFieldName, actualValue.StructFieldName)
 		}
