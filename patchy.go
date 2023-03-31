@@ -17,17 +17,58 @@ type Op struct {
 
 type EntityID interface{}
 
-type ColumnNameFunc func(field reflect.StructField) string
-type ValidatorFunc func(value interface{}) error
-type ConverterFunc func(value interface{}) (interface{}, error)
-type OptionFunc func(*Patchy)
+type ColumnNamer func(field reflect.StructField) string
+type AllowedOps func(field reflect.StructField) []string
+type FieldLocator func(t reflect.Type, pathName string) (reflect.StructField, error)
+type Validator func(value interface{}) error
+type Converter func(value interface{}) (interface{}, error)
+type OptionFunc func(*Patchy) error
 
 type Patchy struct {
-	entityType  reflect.Type
-	tableName   string
-	colNameFunc ColumnNameFunc
-	validator   ValidatorFunc
-	converter   ConverterFunc
+	entityType   reflect.Type
+	tableName    string
+	colNameFunc  ColumnNamer
+	validator    Validator
+	converter    Converter
+	allowedOps   AllowedOps
+	fieldLocator FieldLocator
+}
+
+func AllowOpsFromTag(field reflect.StructField) []string {
+	patchRaw, found := field.Tag.Lookup(TagName)
+	if !found {
+		return []string{}
+	}
+	patchyConfig := strings.Split(patchRaw, ",")
+	if patchyConfig[0] == "-" {
+		return []string{}
+	}
+	// TODO: validate ops / convert to opt enums.
+	// for i, v := range patchyConfig {
+	// 	// validate
+	// }
+	return patchyConfig
+}
+
+func FieldFromTag(t reflect.Type, pathName string) (reflect.StructField, error) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		jsonTag := field.Tag.Get("json")
+		if strings.Split(jsonTag, ",")[0] == pathName {
+			return field, nil
+		}
+	}
+
+	return reflect.StructField{}, errors.New("field not found")
+}
+
+func ColNameFromTag(field reflect.StructField) string {
+	db, found := field.Tag.Lookup("db")
+	if !found {
+		ToSnakeCase(field.Name)
+	}
+	dbTags := strings.Split(db, ",")
+	return dbTags[0]
 }
 
 func NewPatchy(entityType reflect.Type, options ...OptionFunc) (*Patchy, error) {
@@ -40,40 +81,75 @@ func NewPatchy(entityType reflect.Type, options ...OptionFunc) (*Patchy, error) 
 	}
 
 	p := &Patchy{
-		entityType: entityType,
-		tableName:  ToSnakeCase(entityType.Name()),
-		colNameFunc: func(field reflect.StructField) string {
-			// TODO: parse db tag
-			return ToSnakeCase(field.Name)
-		},
+		entityType:   entityType,
+		tableName:    ToSnakeCase(entityType.Name()),
+		colNameFunc:  ColNameFromTag,
+		allowedOps:   AllowOpsFromTag,
+		fieldLocator: FieldFromTag,
 	}
 	for _, option := range options {
-		option(p)
+		err := option(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return p, nil
 }
 
-func WithValidator(validator ValidatorFunc) OptionFunc {
-	return func(p *Patchy) {
+func WithAllowedOps(allowed AllowedOps) OptionFunc {
+	return func(p *Patchy) error {
+		if allowed == nil {
+			return errors.New("allowedOps cannot be nil")
+		}
+		p.allowedOps = allowed
+		return nil
+	}
+}
+
+func WithValidator(validator Validator) OptionFunc {
+	return func(p *Patchy) error {
+		if validator == nil {
+			return errors.New("validator cannot be nil")
+		}
 		p.validator = validator
+		return nil
 	}
 }
 
-func WithConverter(converter ConverterFunc) OptionFunc {
-	return func(p *Patchy) {
+func WithFieldLocator(fieldLocator FieldLocator) OptionFunc {
+	return func(p *Patchy) error {
+		if fieldLocator == nil {
+			return errors.New("fieldLocator cannot be nil")
+		}
+		p.fieldLocator = fieldLocator
+		return nil
+	}
+}
+
+func WithConverter(converter Converter) OptionFunc {
+	return func(p *Patchy) error {
+		if converter == nil {
+			return errors.New("converter cannot be nil")
+		}
 		p.converter = converter
+		return nil
 	}
 }
 
-func WithColumnNameFunc(colNameFunc ColumnNameFunc) OptionFunc {
-	return func(p *Patchy) {
+func WithColumnNamer(colNameFunc ColumnNamer) OptionFunc {
+	return func(p *Patchy) error {
+		if colNameFunc == nil {
+			return errors.New("ColumnNamer cannot be nil")
+		}
 		p.colNameFunc = colNameFunc
+		return nil
 	}
 }
 
 func WithTableName(tableName string) OptionFunc {
-	return func(p *Patchy) {
+	return func(p *Patchy) error {
 		p.tableName = tableName
+		return nil
 	}
 }
 
@@ -91,7 +167,7 @@ type Error struct {
 	Code      int // custom
 }
 
-// NOTE: this is a very naive implementation, it does not handle all cases specifically acronyms like HTTPStatusCode
+// NOTE: this is a very naive implementation, it does not handle all cases, specifically acronyms like HTTPStatusCode are not handled well.
 func ToSnakeCase(s string) string {
 	var result strings.Builder
 	for i, r := range s {
@@ -113,7 +189,7 @@ type FieldMetadata struct {
 	SubElemType     reflect.Kind
 	AllowedOps      []string
 	ColumnName      string
-	TargetStr       string
+	PathTarget      string // This can be an array index, '-' meaning after last key, or a map key depending on the subtype.
 }
 
 // func (p *Patchy) GetFieldMetadata(jsonPointer string) (FieldMetadata, error) {
@@ -131,7 +207,7 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 		return FieldMetadata{}, errors.New("invalid JSON pointer")
 	}
 
-	field, err := getFieldByJsonTag(t, parts[0])
+	field, err := p.fieldLocator(t, parts[0])
 	if err != nil {
 		return FieldMetadata{}, err
 	}
@@ -154,14 +230,14 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 			if err != nil {
 				return FieldMetadata{}, err
 			}
-			meta.TargetStr = indexStr
+			meta.PathTarget = indexStr
 		}
 		return meta, nil
 
 	case reflect.Map:
 		meta := p.buildMetadata(field)
 		if len(parts) > 1 {
-			meta.TargetStr = parts[1]
+			meta.PathTarget = parts[1]
 		}
 		return meta, nil
 	default:
@@ -169,24 +245,12 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 	}
 }
 
-// getFieldByJsonTag returns the field name and type of the field with the given json tag.
-func getFieldByJsonTag(t reflect.Type, tagName string) (reflect.StructField, error) {
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		jsonTag := field.Tag.Get("json")
-		if strings.Split(jsonTag, ",")[0] == tagName {
-			return field, nil
-		}
-	}
-
-	return reflect.StructField{}, errors.New("field not found")
-}
-
 func (p *Patchy) buildMetadata(field reflect.StructField) FieldMetadata {
 	meta := FieldMetadata{
 		StructFieldName: field.Name,
 		Type:            field.Type.Kind(),
 		ColumnName:      p.colNameFunc(field),
+		AllowedOps:      p.allowedOps(field),
 	}
 
 	switch field.Type.Kind() {

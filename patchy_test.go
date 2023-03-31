@@ -88,7 +88,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			expectedValue: &FieldMetadata{
 				Type:        reflect.Slice,
 				SubElemType: reflect.String,
-				TargetStr:   "0",
+				PathTarget:  "0",
 				// Tags:            "json:\"hobbies\"",
 				StructFieldName: "Hobbies",
 				ColumnName:      "hobbies",
@@ -101,7 +101,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			expectedValue: &FieldMetadata{
 				Type:        reflect.TypeOf(map[string]string{}).Kind(),
 				SubElemType: reflect.String,
-				TargetStr:   "dog",
+				PathTarget:  "dog",
 				// Tags:            "json:\"pets\"",
 				StructFieldName: "Pets",
 				ColumnName:      "pets",
@@ -156,8 +156,8 @@ func TestGetFieldMetadata(t *testing.T) {
 		if actualValue.SubElemType != tc.expectedValue.SubElemType {
 			t.Errorf("%s: expected SliceElemType %v, actual SliceElemType %v", tc.name, tc.expectedValue.SubElemType, actualValue.SubElemType)
 		}
-		if actualValue.TargetStr != tc.expectedValue.TargetStr {
-			t.Errorf("%s: expected TargetStr %v, actual TargetStr %v", tc.name, tc.expectedValue.TargetStr, actualValue.TargetStr)
+		if actualValue.PathTarget != tc.expectedValue.PathTarget {
+			t.Errorf("%s: expected PathTarget %v, actual PathTarget %v", tc.name, tc.expectedValue.PathTarget, actualValue.PathTarget)
 		}
 		if actualValue.ColumnName != tc.expectedValue.ColumnName {
 			t.Errorf("%s: expected ColumnName %v, actual ColumnName %v", tc.name, tc.expectedValue.ColumnName, actualValue.ColumnName)
@@ -165,7 +165,5 @@ func TestGetFieldMetadata(t *testing.T) {
 		if actualValue.StructFieldName != tc.expectedValue.StructFieldName {
 			t.Errorf("%s: expected StructFieldName %s, actual StructFieldName %s", tc.name, tc.expectedValue.StructFieldName, actualValue.StructFieldName)
 		}
-
 	}
-
 }
