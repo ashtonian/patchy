@@ -17,7 +17,7 @@ type Op struct {
 
 type EntityID interface{}
 
-type ColumnNameFunc func(field reflect.Type) string
+type ColumnNameFunc func(field reflect.StructField) string
 type ValidatorFunc func(value interface{}) error
 type ConverterFunc func(value interface{}) (interface{}, error)
 type OptionFunc func(*Patchy)
@@ -42,9 +42,9 @@ func NewPatchy(entityType reflect.Type, options ...OptionFunc) (*Patchy, error) 
 	p := &Patchy{
 		entityType: entityType,
 		tableName:  ToSnakeCase(entityType.Name()),
-		colNameFunc: func(field reflect.Type) string {
+		colNameFunc: func(field reflect.StructField) string {
 			// TODO: parse db tag
-			return ToSnakeCase(field.Name())
+			return ToSnakeCase(field.Name)
 		},
 	}
 	for _, option := range options {
@@ -94,7 +94,6 @@ type Error struct {
 // NOTE: this is a very naive implementation, it does not handle all cases specifically acronyms like HTTPStatusCode
 func ToSnakeCase(s string) string {
 	var result strings.Builder
-
 	for i, r := range s {
 		if unicode.IsUpper(r) {
 			if i > 0 && !unicode.IsUpper(rune(s[i-1])) && s[i-1] != '_' {
@@ -129,26 +128,26 @@ type FieldMetadata struct {
 
 func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetadata, error) {
 	if len(parts) == 0 {
-		return p.buildMetadata(t, ""), nil
+		return FieldMetadata{}, errors.New("invalid JSON pointer")
 	}
 
-	fieldName, fieldType, err := getFieldByJsonTag(t, parts[0])
+	field, err := getFieldByJsonTag(t, parts[0])
 	if err != nil {
 		return FieldMetadata{}, err
 	}
 
 	if len(parts) == 1 {
-		return p.buildMetadata(fieldType, fieldName), nil
+		return p.buildMetadata(field), nil
 	}
 
-	switch fieldType.Kind() {
+	switch field.Type.Kind() {
 	case reflect.Struct:
-		return p.getFieldMetadataRec(fieldType, parts[1:])
+		return p.getFieldMetadataRec(field.Type, parts[1:])
 	case reflect.Ptr:
-		return p.getFieldMetadataRec(fieldType.Elem(), parts[1:])
+		return p.getFieldMetadataRec(field.Type.Elem(), parts[1:])
 	case reflect.Slice:
 		// if index == "-" {
-		meta := p.buildMetadata(fieldType, fieldName)
+		meta := p.buildMetadata(field)
 
 		if len(parts) > 1 {
 			indexStr, err := validateArrayIndex(parts[1])
@@ -159,10 +158,8 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 		}
 		return meta, nil
 
-		// return p.getFieldMetadataRec(fieldType.Elem(), parts[2:])
 	case reflect.Map:
-		// get the key type of the map and verify its a string
-		meta := p.buildMetadata(fieldType, fieldName)
+		meta := p.buildMetadata(field)
 		if len(parts) > 1 {
 			meta.TargetStr = parts[1]
 		}
@@ -173,32 +170,32 @@ func (p *Patchy) getFieldMetadataRec(t reflect.Type, parts []string) (FieldMetad
 }
 
 // getFieldByJsonTag returns the field name and type of the field with the given json tag.
-func getFieldByJsonTag(t reflect.Type, tagName string) (string, reflect.Type, error) {
+func getFieldByJsonTag(t reflect.Type, tagName string) (reflect.StructField, error) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		jsonTag := field.Tag.Get("json")
 		if strings.Split(jsonTag, ",")[0] == tagName {
-			return field.Name, field.Type, nil
+			return field, nil
 		}
 	}
 
-	return "", nil, errors.New("field not found")
+	return reflect.StructField{}, errors.New("field not found")
 }
 
-func (p *Patchy) buildMetadata(field reflect.Type, fieldName string) FieldMetadata {
+func (p *Patchy) buildMetadata(field reflect.StructField) FieldMetadata {
 	meta := FieldMetadata{
-		StructFieldName: fieldName,
-		Type:            field.Kind(),
+		StructFieldName: field.Name,
+		Type:            field.Type.Kind(),
 		ColumnName:      p.colNameFunc(field),
 	}
 
-	switch field.Kind() {
+	switch field.Type.Kind() {
 	case reflect.Slice:
-		meta.SubElemType = field.Elem().Kind()
+		meta.SubElemType = field.Type.Elem().Kind()
 	case reflect.Map:
-		meta.SubElemType = field.Elem().Kind()
+		meta.SubElemType = field.Type.Elem().Kind()
 	case reflect.Ptr:
-		meta.Type = field.Elem().Kind()
+		meta.Type = field.Type.Elem().Kind()
 	}
 
 	return meta

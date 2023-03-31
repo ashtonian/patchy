@@ -67,6 +67,7 @@ func TestGetFieldMetadata(t *testing.T) {
 			expectedValue: &FieldMetadata{
 				Type:            reflect.String,
 				StructFieldName: "Name",
+				ColumnName:      "name",
 			},
 			expectedError: nil,
 		},
@@ -77,6 +78,7 @@ func TestGetFieldMetadata(t *testing.T) {
 				Type: reflect.String,
 				// Tags:            "json:\"street\"",
 				StructFieldName: "Street",
+				ColumnName:      "street",
 			},
 			expectedError: nil,
 		},
@@ -89,6 +91,7 @@ func TestGetFieldMetadata(t *testing.T) {
 				TargetStr:   "0",
 				// Tags:            "json:\"hobbies\"",
 				StructFieldName: "Hobbies",
+				ColumnName:      "hobbies",
 			},
 			expectedError: nil,
 		},
@@ -101,17 +104,15 @@ func TestGetFieldMetadata(t *testing.T) {
 				TargetStr:   "dog",
 				// Tags:            "json:\"pets\"",
 				StructFieldName: "Pets",
+				ColumnName:      "pets",
 			},
 			expectedError: nil,
 		},
 		{
-			name:    "root",
-			pointer: "",
-			expectedValue: &FieldMetadata{
-				Type:            reflect.Struct,
-				StructFieldName: "",
-			},
-			expectedError: nil,
+			name:          "root",
+			pointer:       "",
+			expectedValue: nil,
+			expectedError: errors.New("invalid JSON pointer"),
 		},
 		{
 			name:          "nonexistent field",
@@ -157,6 +158,9 @@ func TestGetFieldMetadata(t *testing.T) {
 		}
 		if actualValue.TargetStr != tc.expectedValue.TargetStr {
 			t.Errorf("%s: expected TargetStr %v, actual TargetStr %v", tc.name, tc.expectedValue.TargetStr, actualValue.TargetStr)
+		}
+		if actualValue.ColumnName != tc.expectedValue.ColumnName {
+			t.Errorf("%s: expected ColumnName %v, actual ColumnName %v", tc.name, tc.expectedValue.ColumnName, actualValue.ColumnName)
 		}
 		if actualValue.StructFieldName != tc.expectedValue.StructFieldName {
 			t.Errorf("%s: expected StructFieldName %s, actual StructFieldName %s", tc.name, tc.expectedValue.StructFieldName, actualValue.StructFieldName)
